@@ -18,7 +18,7 @@ def read_ping():
 def welcome_home():
     with open("welcome.html", "r", encoding="utf-8") as file:
         html_content = file.read()
-    return Response(content=html_content, status_code=200, media_type="text/html")
+    return Response(content=html_content, status_code=200, content_type="text/html", media_type="text/html")
 
 
 # Q3: GET /{full_path:path}
