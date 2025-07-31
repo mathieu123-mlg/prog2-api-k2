@@ -1,52 +1,65 @@
-from fastapi import FastAPI, requests
+from fastapi import FastAPI
 from pydantic import BaseModel
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
+from typing import List
 
 app = FastAPI()
 
 
-@app.get("/hello")
-def read_hello(request: Request, name: str="Non fourni", is_teacher: bool=None):
-    if (name == "Non fourni") and (is_teacher is None):
-        accept_headers = request.headers.get("Accept")
-        if accept_headers != "text/plain":
-            return JSONResponse({"message": "Unsupported Media Type"}, status_code=400)
-        return JSONResponse(content="Hello world", status_code=200)
-    else:
-        if is_teacher:
-            result = f"Hello Teacher {name}!"
-        else:
-            result = f"Hello {name}!"
-        return {"message": result}
+# Q1: GET /ping sans parametre
+@app.get("/ping")
+def read_ping():
+    return {f"pong"}
 
 
-class WelcomeRequest(BaseModel):
-    name: str
+# Q2: GET /home sans parametre
+@app.get("/home")
+def welcome_home():
+    with open("welcome.html", "r", encoding="utf-8") as file:
+        html_content = file.read()
+    return Response(content=html_content, status_code=200, media_type="text/html")
 
-@app.post("/welcome")
-def welcome_user(request: WelcomeRequest):
-    return {f"Bienvenue {request.name}"}
+
+# Q3: GET /{full_path:path}
+@app.get("/{full_path:path}")
+def read_path(full_path: str):
+    with open("error_welcome.html", "r", encoding="utf-8") as file:
+        html_content = file.read()
+    return Response(content=html_content, status_code=404, media_type="text/html")
 
 
-class SecretCodeRequest(BaseModel):
-    secret_code: int
+# Q4: POST /posts
+class PostModel(BaseModel):
+    author: str
+    title: str
+    content: str
+    creation_datetime: str
 
-@app.put("/top-secret")
-def put_top_secret(request: Request, request_body: SecretCodeRequest):
-    auth_headers = request.headers.get("Authorization")
+post_store: List[PostModel] = []
 
-    if auth_headers != "my-secret-key":
-        return JSONResponse(
-            status_code=403,
-            content={"error": f"Unauthorized header received: {auth_headers}"}
-        )
+def serialized_stored_player():
+    return [player.model_dump() for player in post_store]
 
-    secret_code = request_body.secret_code
-    code_length = len(str(secret_code))
-    if code_length != 4:
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"Le code fourni n'est pas à 4 chiffre mais à {code_length} chiffres."}
-        )
-    return JSONResponse(content={"message": f"Voici le code {secret_code}"}, status_code=200)
+@app.post("/posts")
+def post_posts(post_lists: List[PostModel]):
+    post_store.extend(post_lists)
+    return JSONResponse(
+        content={ "players": serialized_stored_player() },
+        status_code=201
+    )
+
+
+# Q5: PUT /posts
+@app.put("/posts")
+def put_posts(post_lists: List[PostModel]):
+    found = False
+    for player in post_lists:
+        found = False
+        for i, existing_post in enumerate(post_store):
+            if existing_post.name == player.name:
+                post_store[i] = player
+                found = True
+                break
+    if not found:
+        post_store.append(player)
